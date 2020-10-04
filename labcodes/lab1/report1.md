@@ -5,6 +5,7 @@
 1. 操作系统镜像文件ucore.img是如何一步一步生成的？(需要比较详细地解释Makefile中每一条相关命令和命令参数的含义，以及说明命令导致的结果)
 
 ```makefile
+# 定义变量
 PROJ	:= challenge
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
