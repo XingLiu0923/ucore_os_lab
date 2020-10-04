@@ -1,4 +1,4 @@
-# Lab1 erport
+# Lab1 report
 
 ## [练习1]
 
@@ -154,7 +154,7 @@ bin/ucore.img
 [练习2.1] 从 CPU 加电后执行的第一条指令开始,单步跟踪 BIOS 的执行。
 
 练习2可以单步跟踪，方法如下：
- 
+
 1 修改 lab1/tools/gdbinit,内容为:
 ```
 set architecture i8086
@@ -201,7 +201,7 @@ si
 	x /2i $pc  //显示当前eip处的汇编指令
 	set architecture i386  //设置当前调试的CPU是80386
 ```
-	
+
 运行"make debug"便可得到
 
 ```
