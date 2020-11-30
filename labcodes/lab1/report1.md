@@ -5,7 +5,7 @@
 1. 操作系统镜像文件ucore.img是如何一步一步生成的？(需要比较详细地解释Makefile中每一条相关命令和命令参数的含义，以及说明命令导致的结果)
 
 ```makefile
-# 定义变量
+# 定义变量，注意space的定义方法，makefile会自动忽略句首的空格
 PROJ	:= challenge
 EMPTY	:=
 SPACE	:= $(EMPTY) $(EMPTY)
@@ -16,8 +16,14 @@ V       := @
 #USELLVM := 1
 # try to infer the correct GCCPREFX
 ifndef GCCPREFIX
-GCCPREFIX := $(shell if i386-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/dev/null 2>&1; \
+GCCPREFIX := $(shell \
+	# 0->stdin 1->stdout 2->stderr，而/dev/null相当于垃圾桶，信息重定向到这里直接丢弃
+	# 看命令'i386-elf-objdump -i'是否存在，存在则输出information(-i)，进行了若干重定向
+	# 最后赋予GCCPREFIX的值是then后echo出来的值
+	# GCCPREFIX=''
+	if i386-elf-objdump -i 2>&1 | grep '^elf32-i386$$' >/dev/null 2>&1; \
 	then echo 'i386-elf-'; \
+	# 重新尝试命令'objdump'
 	elif objdump -i 2>&1 | grep 'elf32-i386' >/dev/null 2>&1; \
 	then echo ''; \
 	else echo "***" 1>&2; \
@@ -53,11 +59,19 @@ endif
 
 # define compiler and flags
 ifndef  USELLVM
+# 用gcc编译
 HOSTCC		:= gcc
+# -g调试时保留代码文字信息，便于调试；-Wall生成所有警告信息；-O2优化生成的代码
 HOSTCFLAGS	:= -g -Wall -O2
 CC		:= $(GCCPREFIX)gcc
+# -march说明编译后的代码在x86的i686结构上使用; -fno-builtin不适用编译器优化后的库函数（即需要手动include）;-fno-PIC: https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html; -ggdb与-g类似，-g生成debug原始信息，-ggdb生成信息更易于gdb适用; -m32表示编译的是32位程序; -stabs此选项以stabs格式声称调试信息，但是不包括gdb调试信息; -nostdinc不在标准系统目录中搜索头文件,只在-I指定的目录中搜索; $(DEFS)未定义，用于扩展变量
 CFLAGS	:= -march=i686 -fno-builtin -fno-PIC -Wall -ggdb -m32 -gstabs -nostdinc $(DEFS)
+# $(shell)可以输出shell指令，-fno-stack-protector禁用堆栈保护，-E仅预处理不进行编译汇编链接可以提高速度，-x c指明c语言
+# /dev/null指定目标文件，>/dev/null 2>&1标准错误重定向到标准输出，&&先运行前一句若成功再运行后一句（原来如此。。）
+# 意为只预处理，所有出错全部作为垃圾(/dev/null类似垃圾文件)测试能否开启-fno-stack-protector，若能则CFLAGS += -fno-stack-protector
+# CFLAGS = -march=i686 -fno-builtin -fno-PIC -Wall -ggdb -m32 -gstabs -nostdinc -fno-stack-protector
 CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
+# 适用clang做上述类似的处理
 else
 HOSTCC		:= clang
 HOSTCFLAGS	:= -g -Wall -O2
@@ -66,10 +80,15 @@ CFLAGS	:= -march=i686 -fno-builtin -fno-PIC -Wall -g -m32 -nostdinc $(DEFS)
 CFLAGS	+= $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 endif
 
+# 源文件类型
 CTYPE	:= c S
 
+# ld命令，GNU链接器，与gcc链接是一样的
 LD      := $(GCCPREFIX)ld
+# ld -V 输出链接器支持的版本
 LDFLAGS	:= -m $(shell $(LD) -V | grep elf_i386 2>/dev/null | head -n 1)
+##-nostdlib不连接系统标准库文件
+# LDFLAGS = -m elf_i386 -nostdlib
 LDFLAGS	+= -nostdlib
 
 OBJCOPY := $(GCCPREFIX)objcopy
@@ -92,11 +111,16 @@ ALLOBJS	:=
 ALLDEPS	:=
 TARGETS	:=
 
+# function.mk中定义了有用的makefile函数
 include tools/function.mk
 
+# 列出目录下所有的c S文件
+# listf函数利用了filter来过滤出指定目录下的特定后缀文件
+# fiter(%.c %.s, derectory/*)
 listf_cc = $(call listf,$(1),$(CTYPE))
 
 # for cc
+
 add_files_cc = $(call add_files,$(1),$(CC),$(CFLAGS) $(3),$(2),$(4))
 create_target_cc = $(call create_target,$(1),$(2),$(3),$(CC),$(CFLAGS))
 
