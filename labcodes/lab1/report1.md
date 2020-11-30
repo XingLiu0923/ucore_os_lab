@@ -64,7 +64,7 @@ HOSTCC		:= gcc
 # -g调试时保留代码文字信息，便于调试；-Wall生成所有警告信息；-O2优化生成的代码
 HOSTCFLAGS	:= -g -Wall -O2
 CC		:= $(GCCPREFIX)gcc
-# -march说明编译后的代码在x86的i686结构上使用; -fno-builtin不适用编译器优化后的库函数（即需要手动include）;-fno-PIC: https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html; -ggdb与-g类似，-g生成debug原始信息，-ggdb生成信息更易于gdb适用; -m32表示编译的是32位程序; -stabs此选项以stabs格式声称调试信息，但是不包括gdb调试信息; -nostdinc不在标准系统目录中搜索头文件,只在-I指定的目录中搜索; $(DEFS)未定义，用于扩展变量
+# -march说明编译后的代码在x86的i686结构上使用; -fno-builtin不适用编译器优化后的库函数（即需要手动include）,只接受以“__builtin_”开头的名称的内建函数; ;-fno-PIC: https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html; -ggdb与-g类似，-g生成debug原始信息，-ggdb生成信息更易于gdb适用; -m32表示编译的是32位程序; -stabs此选项以stabs格式声称调试信息，但是不包括gdb调试信息; -nostdinc不在标准系统目录中搜索头文件,只在-I指定的目录中搜索; $(DEFS)未定义，用于扩展变量
 CFLAGS	:= -march=i686 -fno-builtin -fno-PIC -Wall -ggdb -m32 -gstabs -nostdinc $(DEFS)
 # $(shell)可以输出shell指令，-fno-stack-protector禁用堆栈保护，-E仅预处理不进行编译汇编链接可以提高速度，-x c指明c语言
 # /dev/null指定目标文件，>/dev/null 2>&1标准错误重定向到标准输出，&&先运行前一句若成功再运行后一句（原来如此。。）
@@ -303,6 +303,8 @@ tags:
 
 其中用到的重要的库函数`function.mk`注释如下
 
+参考：https://blog.csdn.net/dglxlcl/article/details/100842011
+
 ```makefile
 OBJPREFIX	:= __objs_
 
@@ -315,10 +317,12 @@ listf = $(filter $(if $(2),$(addprefix %.,$(2)),%),\
 		  $(wildcard $(addsuffix $(SLASH)*,$(1))))
 
 # get .o obj files: (#files[, packet])
+# 给出文件名列表files,和软件包名称packet，返回相应文件的目标文件名称：/objdir/packet/file.o
 toobj = $(addprefix $(OBJDIR)$(SLASH)$(if $(2),$(2)$(SLASH)),\
 		$(addsuffix .o,$(basename $(1))))
 
 # get .d dependency files: (#files[, packet])
+# .d文件是包含了依赖文件关系，具体描述：https://www.cnblogs.com/sky-heaven/p/9735177.html
 todep = $(patsubst %.o,%.d,$(call toobj,$(1),$(2)))
 
 totarget = $(addprefix $(BINDIR)$(SLASH),$(1))
@@ -327,9 +331,20 @@ totarget = $(addprefix $(BINDIR)$(SLASH),$(1))
 packetname = $(if $(1),$(addprefix $(OBJPREFIX),$(1)),$(OBJPREFIX))
 
 # cc compile template, generate rule for dep, obj: (file, cc[, flags, dir])
+# 为文件生成编译后的目标文件 dep和obj
 define cc_template
+# 生成目标文件的依赖文件，要被eval两次，最后此外还有make时的一次，因此会出现4次$
+# "|"号表示 后面的依赖目标是order-only Prerequisites，执行某个或某些规则，但不会引起生成目标被重新生成
+# $$$$(dir $$$$@)：是一个order-only Prerequisites,其内容是是%.d文件的路径
+# -I：添加包含目录; -MM: 生成文件的依赖关系，但不包含标准库的头文件; -MT: 在生成的依赖文件中,指定依赖规则中的目标
+# $<:第一个依赖文件。-MT "$$(patsubst %.d,%.o,$$@) $$@"：在规则中的目标文件添加%.o (这样的话，目标文件由%o %d组成)
+# > $$@：将依赖规则信息输出到目标文件（%.d）中，其实也可以用-MF标记来做
+# gcc -Idir -flags -MM $< -MT %.d %.o > %.d
+# 该命令的重要功能就是可以将c文件中的#include依赖都自动写入makefile中
 $$(call todep,$(1),$(4)): $(1) | $$$$(dir $$$$@)
 	@$(2) -I$$(dir $(1)) $(3) -MM $$< -MT "$$(patsubst %.d,%.o,$$@) $$@"> $$@
+# 生成目标文件
+# gcc -Idir -flags -c file -o file.o
 $$(call toobj,$(1),$(4)): $(1) | $$$$(dir $$$$@)
 	@echo + cc $$<
 	$(V)$(2) -I$$(dir $(1)) $(3) -c $$< -o $$@
@@ -342,12 +357,17 @@ $$(foreach f,$(1),$$(eval $$(call cc_template,$$(f),$(2),$(3),$(4))))
 endef
 
 # add files to packet: (#files, cc[, flags, packet, dir])
+# 此模板，就是真正在makefile中用来编译所有的目表文件，并生成makefile规则的模板。
 define do_add_files_to_packet
+# __temp_packet__ = __objs_$(4)
 __temp_packet__ := $(call packetname,$(4))
+# 如果__temp_packet__的值未定义，则定义为空
 ifeq ($$(origin $$(__temp_packet__)),undefined)
 $$(__temp_packet__) :=
 endif
+# __temp_objs__=objdir/dir/file.obj
 __temp_objs__ := $(call toobj,$(1),$(5))
+# 对于files中的各个file进行编译
 $$(foreach f,$(1),$$(eval $$(call cc_template,$$(f),$(2),$(3),$(5))))
 $$(__temp_packet__) += $$(__temp_objs__)
 endef
@@ -361,10 +381,16 @@ endif
 $$(__temp_packet__) += $(1)
 endef
 
-# add packets and objs to target (target, #packes, #objs[, cc, flags])
+# add packets and objs to target (target, #packets, #objs[, cc, flags])
+# (sign, sign, , gcc, -g -Wall -O2)
 define do_create_target
+# __temp_target__ = /bin/$(target)
+# __temp_target__ = /bin/bootblock
 __temp_target__ = $(call totarget,$(1))
+# 读取__objs_$(2)中的文件序列，再在最后加上$(3)返回给__temp_objs__(为什么要加$(3)???没弄明白)
+# __temp_objs__ = /objs/sign/tools/sign.o
 __temp_objs__ = $$(foreach p,$(call packetname,$(2)),$$($$(p))) $(3)
+# TARGETS = bin/kernel bin/bootblock
 TARGETS += $$(__temp_target__)
 ifneq ($(4),)
 $$(__temp_target__): $$(__temp_objs__) | $$$$(dir $$$$@)
