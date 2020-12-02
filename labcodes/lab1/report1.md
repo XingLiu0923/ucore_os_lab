@@ -4,6 +4,8 @@
 
 1. 操作系统镜像文件ucore.img是如何一步一步生成的？(需要比较详细地解释Makefile中每一条相关命令和命令参数的含义，以及说明命令导致的结果)
 
+参考：https://www.it610.com/article/1294049168892960768.htm
+
 ```makefile
 # 定义变量，注意space的定义方法，makefile会自动忽略句首的空格
 PROJ	:= challenge
@@ -87,7 +89,7 @@ CTYPE	:= c S
 LD      := $(GCCPREFIX)ld
 # ld -V 输出链接器支持的版本
 LDFLAGS	:= -m $(shell $(LD) -V | grep elf_i386 2>/dev/null | head -n 1)
-##-nostdlib不连接系统标准库文件
+# -nostdlib不连接系统标准库文件
 # LDFLAGS = -m elf_i386 -nostdlib
 LDFLAGS	+= -nostdlib
 
@@ -114,12 +116,11 @@ TARGETS	:=
 # function.mk中定义了有用的makefile函数
 include tools/function.mk
 
-# 列出目录下所有的c S文件
-# listf函数利用了filter来过滤出指定目录下的特定后缀文件
+# 列出目录下所有的.c .S文件
 listf_cc = $(call listf,$(1),$(CTYPE))
 
 # for cc
-# 编译产生.o文件
+# 编译产生.o文件，add_files_cc相当于一个包装的新函数
 add_files_cc = $(call add_files,$(1),$(CC),$(CFLAGS) $(3),$(2),$(4))
 # 链接产生可执行文件
 create_target_cc = $(call create_target,$(1),$(2),$(3),$(CC),$(CFLAGS))
@@ -128,8 +129,11 @@ create_target_cc = $(call create_target,$(1),$(2),$(3),$(CC),$(CFLAGS))
 add_files_host = $(call add_files,$(1),$(HOSTCC),$(HOSTCFLAGS),$(2),$(3))
 create_target_host = $(call create_target,$(1),$(2),$(3),$(HOSTCC),$(HOSTCFLAGS))
 
+# cgtype 将$(1)中的$(2)后缀替换成$(3)后缀
+# patsubst用例，$(patsubst %.c,%.o, a.c b.c)
 cgtype = $(patsubst %.$(2),%.$(3),$(1))
 objfile = $(call toobj,$(1))
+# 将.o后缀分别改为.asm .out .sym
 asmfile = $(call cgtype,$(call toobj,$(1)),o,asm)
 outfile = $(call cgtype,$(call toobj,$(1)),o,out)
 symfile = $(call cgtype,$(call toobj,$(1)),o,sym)
