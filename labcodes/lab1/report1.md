@@ -119,8 +119,9 @@ include tools/function.mk
 listf_cc = $(call listf,$(1),$(CTYPE))
 
 # for cc
-
+# 编译产生.o文件
 add_files_cc = $(call add_files,$(1),$(CC),$(CFLAGS) $(3),$(2),$(4))
+# 链接产生可执行文件
 create_target_cc = $(call create_target,$(1),$(2),$(3),$(CC),$(CFLAGS))
 
 # for hostcc
@@ -301,9 +302,11 @@ tags:
 
 ```
 
-其中用到的重要的库函数`function.mk`注释如下
+下面是用到的重要的库函数`function.mk`的相关理解，**其中：**
 
-参考：https://blog.csdn.net/dglxlcl/article/details/100842011
+基本注释参考如下：https://blog.csdn.net/dglxlcl/article/details/100842011
+
+makefile-demo来源如下：https://blog.csdn.net/Anhui_Chen/article/details/106892975
 
 ```makefile
 OBJPREFIX	:= __objs_
@@ -328,6 +331,7 @@ todep = $(patsubst %.o,%.d,$(call toobj,$(1),$(2)))
 totarget = $(addprefix $(BINDIR)$(SLASH),$(1))
 
 # change $(name) to $(OBJPREFIX)$(name): (#names)
+# packetname = __objs_$(1)
 packetname = $(if $(1),$(addprefix $(OBJPREFIX),$(1)),$(OBJPREFIX))
 
 # cc compile template, generate rule for dep, obj: (file, cc[, flags, dir])
@@ -340,7 +344,6 @@ define cc_template
 # $<:第一个依赖文件。-MT "$$(patsubst %.d,%.o,$$@) $$@"：在规则中的目标文件添加%.o (这样的话，目标文件由%o %d组成)
 # > $$@：将依赖规则信息输出到目标文件（%.d）中，其实也可以用-MF标记来做
 # gcc -Idir -flags -MM $< -MT %.d %.o > %.d
-# 该命令的重要功能就是可以将c文件中的#include依赖都自动写入makefile中
 $$(call todep,$(1),$(4)): $(1) | $$$$(dir $$$$@)
 	@$(2) -I$$(dir $(1)) $(3) -MM $$< -MT "$$(patsubst %.d,%.o,$$@) $$@"> $$@
 # 生成目标文件
@@ -357,18 +360,19 @@ $$(foreach f,$(1),$$(eval $$(call cc_template,$$(f),$(2),$(3),$(4))))
 endef
 
 # add files to packet: (#files, cc[, flags, packet, dir])
-# 此模板，就是真正在makefile中用来编译所有的目表文件，并生成makefile规则的模板。
+# 此模板就是真正在makefile中用来编译所有的目表文件，并生成makefile规则的模板。
 define do_add_files_to_packet
 # __temp_packet__ = __objs_$(4)
 __temp_packet__ := $(call packetname,$(4))
-# 如果__temp_packet__的值未定义，则定义为空
+# 如果$$(__temp_packet__)的值未定义，则定义为空
 ifeq ($$(origin $$(__temp_packet__)),undefined)
 $$(__temp_packet__) :=
 endif
-# __temp_objs__=objdir/dir/file.obj
+# __temp_objs__=objdir/dir/file.o
 __temp_objs__ := $(call toobj,$(1),$(5))
 # 对于files中的各个file进行编译
 $$(foreach f,$(1),$$(eval $$(call cc_template,$$(f),$(2),$(3),$(5))))
+## 此时可以获得最终的$$(__temp_packet__)变量，为各个.o函数的集合，在 do_create_target 函数中会用到
 $$(__temp_packet__) += $$(__temp_objs__)
 endef
 
@@ -387,12 +391,15 @@ define do_create_target
 # __temp_target__ = /bin/$(target)
 # __temp_target__ = /bin/bootblock
 __temp_target__ = $(call totarget,$(1))
-# 读取__objs_$(2)中的文件序列，再在最后加上$(3)返回给__temp_objs__(为什么要加$(3)???没弄明白)
+# 读取__objs_$(2)中的文件序列，再在最后加上$(3)返回给__temp_objs__(为什么要加$(3)?，实际上(3)为空白)
+# $(call packetname,$(2)) = __objs_sign,
 # __temp_objs__ = /objs/sign/tools/sign.o
+# 结合do_add_files_to_packet看，本质上是提取了已经编译后的.o文件
 __temp_objs__ = $$(foreach p,$(call packetname,$(2)),$$($$(p))) $(3)
 # TARGETS = bin/kernel bin/bootblock
 TARGETS += $$(__temp_target__)
 ifneq ($(4),)
+# gcc -g -Wall -O2 obj/sign/tools/sign.o -o bin/sign
 $$(__temp_target__): $$(__temp_objs__) | $$$$(dir $$$$@)
 	$(V)$(4) $(5) $$^ -o $$@
 else

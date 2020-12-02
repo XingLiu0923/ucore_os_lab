@@ -21,9 +21,11 @@ packetname = $(if $(1),$(addprefix $(OBJPREFIX),$(1)),$(OBJPREFIX))
 
 # cc compile template, generate rule for dep, obj: (file, cc[, flags, dir])
 define cc_template
+$$(call todep,$(1),$(4)): $(1) | $$$$(dir $$$$@)
+	@$(2) -I$$(dir $(1)) $(3) -MM $$< -MT "$$(patsubst %.d,%.o,$$@) $$@"> $$@
 $$(call toobj,$(1),$(4)): $(1) | $$$$(dir $$$$@)
 	@echo + cc $$<
-	$(V)$(2) $(3) -c $$< -o $$@
+	$(V)$(2) -I$$(dir $(1)) $(3) -c $$< -o $$@
 ALLOBJS += $$(call toobj,$(1),$(4))
 endef
 
@@ -59,7 +61,6 @@ __temp_objs__ = $$(foreach p,$(call packetname,$(2)),$$($$(p))) $(3)
 TARGETS += $$(__temp_target__)
 ifneq ($(4),)
 $$(__temp_target__): $$(__temp_objs__) | $$$$(dir $$$$@)
-	echo $$(call packetname,$(2))
 	$(V)$(4) $(5) $$^ -o $$@
 else
 $$(__temp_target__): $$(__temp_objs__) | $$$$(dir $$$$@)
