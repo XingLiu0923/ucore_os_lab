@@ -120,7 +120,7 @@ include tools/function.mk
 listf_cc = $(call listf,$(1),$(CTYPE))
 
 # for cc
-# 编译产生.o文件，add_files_cc相当于一个包装的新函数
+# 编译产生.o文件，add_files_cc相当于一个包装的新函数 (files, packet, flags, dir)
 add_files_cc = $(call add_files,$(1),$(CC),$(CFLAGS) $(3),$(2),$(4))
 # 链接产生可执行文件
 create_target_cc = $(call create_target,$(1),$(2),$(3),$(CC),$(CFLAGS))
@@ -139,6 +139,8 @@ outfile = $(call cgtype,$(call toobj,$(1)),o,out)
 symfile = $(call cgtype,$(call toobj,$(1)),o,sym)
 
 # for match pattern
+# awk tutorial: https://zhuanlan.zhihu.com/p/68188159
+# NF是column#，match(string,regexp,array)
 match = $(shell echo $(2) | $(AWK) '{for(i=1;i<=NF;i++){if(match("$(1)","^"$$(i)"$$")){exit 1;}}}'; echo $$?)
 
 # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>

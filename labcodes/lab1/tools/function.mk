@@ -61,13 +61,7 @@ __temp_objs__ = $$(foreach p,$(call packetname,$(2)),$$($$(p))) $(3)
 TARGETS += $$(__temp_target__)
 ifneq ($(4),)
 $$(__temp_target__): $$(__temp_objs__) | $$$$(dir $$$$@)
-	@echo $$($$(__objs_sign))
 	$(V)$(4) $(5) $$^ -o $$@
-	@echo 1:$(1) 2:$(2) 3:$(3) 4:$(4) 5:$(5)
-	@echo $(V)$(4) $(5) $$^ -o $$@
-	@echo temp_target:$(__temp_target__)
-	@echo temp_objs:$(__temp_objs__)
-	@echo TARGETS:$(TARGETS)
 else
 $$(__temp_target__): $$(__temp_objs__) | $$$$(dir $$$$@)
 endif

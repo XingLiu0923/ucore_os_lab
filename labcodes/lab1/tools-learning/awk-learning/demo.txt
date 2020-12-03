@@ -1,0 +1,5 @@
+1) root
+2) daemon
+3) bin
+4) sys
+5) sync
