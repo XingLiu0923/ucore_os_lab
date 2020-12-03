@@ -24,8 +24,9 @@ all: $(DEP) $(OBJ)
 	@echo "   __objs_HELLO: $(__objs_HELLO)"
 
 
-$(ORDER) $(BINDIR):
+$(ORDER) $(BINDIR)$(SLASH):
 	mkdir -p $@
+
 
 .PHONY: clean
 clean:
