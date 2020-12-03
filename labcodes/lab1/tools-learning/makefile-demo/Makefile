@@ -13,9 +13,14 @@ OBJ := $(call toobj,$(SRC),$(TMP))
 DEP := $(call todep,$(SRC),$(TMP))
 ORDER := $(OBJDIR)$(SLASH)$(TMP)$(SLASH)src/
 
-$(eval $(call do_create_target,main,,obj/tmp/src/main.o obj/tmp/src/init.o obj/tmp/src/common.o,gcc,-g))
+# $(eval $(call do_create_target,main,,obj/tmp/src/main.o obj/tmp/src/init.o obj/tmp/src/common.o,gcc,-g))
+# $(info $(call do_add_files_to_packet,$(SRC),gcc,-g,HELLO,$(TMP)))
 
-$(eval $(call do_add_files_to_packet,$(SRC),gcc,-g,HELLO,$(TMP)))
+add_files_cc := $(call add_files,$(1),gcc,-g,$(3),$(2),$(4))
+$(call add_files_cc,$(SRC),,)
+
+all2:
+	echo $(add_files_cc)
 
 all: $(DEP) $(OBJ)
 	@echo "        ALLOBJS: $(ALLOBJS)"
