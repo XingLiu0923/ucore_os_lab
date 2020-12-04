@@ -152,6 +152,9 @@ CFLAGS	+= $(addprefix -I,$(INCLUDE))
 
 LIBDIR	+= libs
 
+# 注意没有eval，所以不会执行
+# 此处可参考：https://www.cnblogs.com/wuhualong/p/ucore_lab1_exercise1_report.html
+# 可以逐步进行简化：$(call add_files_cc,libs/*.c,libs,)->$(call add_files,libs/*.c,gcc,$(CFLAGS),,)->$(eval $(call  do_add_files_to_packet,libs/*.c,gcc,#(CFLAGS),,libs))
 $(call add_files_cc,$(call listf_cc,$(LIBDIR)),libs,)
 
 # -------------------------------------------------------------------
